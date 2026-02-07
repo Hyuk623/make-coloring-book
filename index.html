@@ -7,8 +7,25 @@
   <link href='/style.css' rel='stylesheet'>
 </head>
 <body>
-  <h1>Hello, world!</h1>
-  <button onclick="console.log('hello');">Press me</button>
+  <h1>Coloring Book Creator</h1>
+
+  <div class="controls">
+    <input type="file" id="imageUpload" accept="image/*">
+    <button id="convertBtn" disabled>Convert to Coloring Page</button>
+    <button id="printBtn" disabled>Print Coloring Page</button>
+  </div>
+
+  <div class="canvas-container">
+    <div class="canvas-wrapper">
+      <h2>Original Image</h2>
+      <canvas id="originalCanvas"></canvas>
+    </div>
+    <div class="canvas-wrapper">
+      <h2>Coloring Page</h2>
+      <canvas id="coloringCanvas"></canvas>
+    </div>
+  </div>
+
   <script defer type="text/javascript" src="/main.js"></script>
 </body>
 </html>
