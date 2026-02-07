@@ -3,11 +3,26 @@ const originalCanvas = document.getElementById('originalCanvas');
 const coloringCanvas = document.getElementById('coloringCanvas');
 const convertBtn = document.getElementById('convertBtn');
 const printBtn = document.getElementById('printBtn');
+const thresholdSlider = document.getElementById('thresholdSlider');
+const thresholdValueSpan = document.getElementById('thresholdValue');
 
 const originalCtx = originalCanvas.getContext('2d');
 const coloringCtx = coloringCanvas.getContext('2d');
 
 let uploadedImage = null;
+let currentThreshold = parseInt(thresholdSlider.value);
+
+// Update threshold value display
+thresholdValueSpan.textContent = currentThreshold;
+
+thresholdSlider.addEventListener('input', () => {
+  currentThreshold = parseInt(thresholdSlider.value);
+  thresholdValueSpan.textContent = currentThreshold;
+  if (uploadedImage) {
+    // Re-run conversion with new threshold for real-time feedback
+    convertImageToColoringPage();
+  }
+});
 
 imageUpload.addEventListener('change', (event) => {
   const file = event.target.files[0];
@@ -41,6 +56,9 @@ imageUpload.addEventListener('change', (event) => {
 
       // Clear coloring canvas if a new image is uploaded
       coloringCtx.clearRect(0, 0, coloringCanvas.width, coloringCanvas.height);
+      // Immediately convert image after upload
+      convertImageToColoringPage();
+      printBtn.disabled = false;
     };
     img.src = e.target.result;
   };
@@ -48,7 +66,11 @@ imageUpload.addEventListener('change', (event) => {
 });
 
 function convertImageToColoringPage() {
-  // Use the original image's dimensions for processing to maintain detail
+  if (!uploadedImage) {
+    return; // Do nothing if no image is uploaded
+  }
+  console.log('Converting image with threshold:', currentThreshold); // Log the threshold
+  
   const processingWidth = uploadedImage.width;
   const processingHeight = uploadedImage.height;
 
@@ -71,7 +93,7 @@ function convertImageToColoringPage() {
   const outputData = outputImageData.data;
 
   // Grayscale and simple edge detection
-  const threshold = 100; // Adjust for sensitivity of edge detection
+  const threshold = currentThreshold; // Use dynamic threshold
 
   for (let y = 0; y < processingHeight; y++) {
     for (let x = 0; x < processingWidth; x++) {
