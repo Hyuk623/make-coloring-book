@@ -103,6 +103,27 @@ function convertImageToColoringPage() {
     }
   }
 
+  // Apply Gaussian Blur (3x3 kernel for simplicity)
+  const blurredGrayscaleData = new Uint8ClampedArray(processingWidth * processingHeight);
+  const gaussianKernel = [
+    [1, 2, 1],
+    [2, 4, 2],
+    [1, 2, 1]
+  ];
+  const kernelSum = 16; // Sum of all values in the kernel
+
+  for (let y = 1; y < processingHeight - 1; y++) {
+    for (let x = 1; x < processingWidth - 1; x++) {
+      let sum = 0;
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          sum += grayscaleData[(y + ky) * processingWidth + (x + kx)] * gaussianKernel[ky + 1][kx + 1];
+        }
+      }
+      blurredGrayscaleData[y * processingWidth + x] = sum / kernelSum;
+    }
+  }
+
   // Sobel kernels
   const Gx = [
     [-1, 0, 1],
