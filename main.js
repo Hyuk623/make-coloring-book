@@ -69,7 +69,7 @@ function convertImageToColoringPage() {
   if (!uploadedImage) {
     return; // Do nothing if no image is uploaded
   }
-  console.log('Converting image with threshold:', currentThreshold); // Log the threshold
+  console.log('Converting image with threshold (Sobel):', currentThreshold); // Log the threshold
   
   const processingWidth = uploadedImage.width;
   const processingHeight = uploadedImage.height;
@@ -84,7 +84,6 @@ function convertImageToColoringPage() {
   const imageData = tempCtx.getImageData(0, 0, processingWidth, processingHeight);
   const data = imageData.data;
   
-  // Create a temporary output canvas for the processed image at its original resolution
   const processedTempCanvas = document.createElement('canvas');
   processedTempCanvas.width = processingWidth;
   processedTempCanvas.height = processingHeight;
@@ -92,49 +91,71 @@ function convertImageToColoringPage() {
   const outputImageData = processedTempCtx.createImageData(processingWidth, processingHeight);
   const outputData = outputImageData.data;
 
-  // Grayscale and simple edge detection
-  const threshold = currentThreshold; // Use dynamic threshold
-
+  // Pre-calculate grayscale values for efficiency
+  const grayscaleData = new Uint8ClampedArray(processingWidth * processingHeight);
   for (let y = 0; y < processingHeight; y++) {
     for (let x = 0; x < processingWidth; x++) {
       const i = (y * processingWidth + x) * 4;
-
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
+      grayscaleData[y * processingWidth + x] = 0.2126 * r + 0.7152 * g + 0.0722 * b; // Luminance
+    }
+  }
 
-      // Convert to grayscale (luminance method)
-      const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  // Sobel kernels
+  const Gx = [
+    [-1, 0, 1],
+    [-2, 0, 2],
+    [-1, 0, 1]
+  ];
 
-      // Apply edge detection
-      let isEdge = false;
-      if (x < processingWidth - 1) { // Check right neighbor
-        const iRight = (y * processingWidth + (x + 1)) * 4;
-        const rRight = data[iRight];
-        const gRight = data[iRight + 1];
-        const bRight = data[iRight + 2];
-        const grayRight = 0.2126 * rRight + 0.7152 * gRight + 0.0722 * bRight;
-        if (Math.abs(gray - grayRight) > threshold) {
-          isEdge = true;
+  const Gy = [
+    [-1, -2, -1],
+    [0, 0, 0],
+    [1, 2, 1]
+  ];
+
+  const threshold = currentThreshold; // Use dynamic threshold
+
+  // Apply Sobel filter
+  for (let y = 1; y < processingHeight - 1; y++) { // Skip border pixels
+    for (let x = 1; x < processingWidth - 1; x++) {
+      let sumX = 0;
+      let sumY = 0;
+
+      // Apply convolution for Gx and Gy
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          const pixelValue = grayscaleData[(y + ky) * processingWidth + (x + kx)];
+          sumX += pixelValue * Gx[ky + 1][kx + 1];
+          sumY += pixelValue * Gy[ky + 1][kx + 1];
         }
       }
-      if (!isEdge && y < processingHeight - 1) { // Check bottom neighbor if not already an edge
-        const iBottom = ((y + 1) * processingWidth + x) * 4;
-        const rBottom = data[iBottom];
-        const gBottom = data[iBottom + 1];
-        const bBottom = data[iBottom + 2];
-        const grayBottom = 0.2126 * rBottom + 0.7152 * gBottom + 0.0722 * bBottom;
-        if (Math.abs(gray - grayBottom) > threshold) {
-          isEdge = true;
-        }
-      }
 
-      if (isEdge) {
+      // Calculate magnitude
+      const magnitude = Math.sqrt(sumX * sumX + sumY * sumY);
+
+      const i = (y * processingWidth + x) * 4;
+      if (magnitude > threshold) {
         outputData[i] = 0;     // Black
         outputData[i + 1] = 0;
         outputData[i + 2] = 0;
         outputData[i + 3] = 255; // Opaque
       } else {
+        outputData[i] = 255;     // White
+        outputData[i + 1] = 255;
+        outputData[i + 2] = 255;
+        outputData[i + 3] = 255; // Opaque
+      }
+    }
+  }
+
+  // Handle border pixels (set to white)
+  for (let y = 0; y < processingHeight; y++) {
+    for (let x = 0; x < processingWidth; x++) {
+      if (y === 0 || y === processingHeight - 1 || x === 0 || x === processingWidth - 1) {
+        const i = (y * processingWidth + x) * 4;
         outputData[i] = 255;     // White
         outputData[i + 1] = 255;
         outputData[i + 2] = 255;
