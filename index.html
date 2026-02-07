@@ -3,35 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hello World</title>
+  <title>Coloring Book Creator</title>
   <link href='/style.css' rel='stylesheet'>
 </head>
 <body>
-  <h1>Coloring Book Creator</h1>
 
-  <div class="controls">
-    <input type="file" id="imageUpload" accept="image/*">
-    <button id="convertBtn" disabled>Convert to Coloring Page</button>
-    <button id="printBtn" disabled>Print Coloring Page</button>
-    <label for="thresholdSlider">Threshold: <span id="thresholdValue">100</span></label>
-    <input type="range" id="thresholdSlider" min="0" max="255" value="100">
-    <label for="blurSlider">블러 강도: <span id="blurValue">1</span></label>
-    <input type="range" id="blurSlider" min="0" max="5" value="1" step="0.1">
-    <input type="text" id="imageUrl" placeholder="또는 이미지 URL 입력 (예: https://example.com/image.jpg)">
-    <button id="loadUrlBtn">URL 이미지 로드</button>
-  </div>
+  <app-header></app-header>
+  <main>
+    <control-panel></control-panel>
+    <canvas-display></canvas-display>
+  </main>
+  <app-footer></app-footer>
 
-  <div class="canvas-container">
-    <div class="canvas-wrapper">
-      <h2>Original Image</h2>
-      <canvas id="originalCanvas"></canvas>
-    </div>
-    <div class="canvas-wrapper">
-      <h2>Coloring Page</h2>
-      <canvas id="coloringCanvas"></canvas>
-    </div>
-  </div>
-
-  <script defer type="text/javascript" src="/main.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/potrace@2.1.8/build/potrace.min.js"></script>
+  <script defer type="module" src="/main.js"></script>
 </body>
 </html>
