@@ -10,7 +10,7 @@ This project aims to create a simple web application that allows users to upload
 - Basic JavaScript setup (`main.js`)
 - Threshold slider for adjusting conversion sensitivity.
 
-## Current Plan: Enhance Coloring Book Image Conversion with Sobel Filter and Gaussian Blur
+## Current Plan: Enhance Coloring Book Image Conversion with Sobel Filter, Gaussian Blur, and URL-based Image Loading
 
 ### Subtasks:
 1.  **Set up basic HTML structure:** Add file input, canvas elements for original and processed images, and buttons for convert and print. (Completed)
@@ -20,4 +20,5 @@ This project aims to create a simple web application that allows users to upload
 5.  **Implement printing functionality.** (Completed)
 6.  **Refine UI/UX and styling:** Implemented threshold slider for real-time adjustment. (Completed)
 7.  **Implement Sobel filter for enhanced edge detection:** Replace the current simple edge detection logic with a more robust Sobel filter algorithm to produce cleaner and more accurate outlines. (Completed)
-8.  **Add Gaussian Blur pre-processing:** Apply Gaussian blur to the grayscale image data before applying the Sobel filter to further reduce noise and improve edge detection accuracy. (Pending)
+8.  **Add Gaussian Blur pre-processing:** Apply Gaussian blur to the grayscale image data before applying the Sobel filter to further reduce noise and improve edge detection accuracy. (Completed)
+9.  **Add URL-based image loading feature:** Allow users to input an image URL to load and convert images. (Pending)

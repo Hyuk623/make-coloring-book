@@ -5,6 +5,8 @@ const convertBtn = document.getElementById('convertBtn');
 const printBtn = document.getElementById('printBtn');
 const thresholdSlider = document.getElementById('thresholdSlider');
 const thresholdValueSpan = document.getElementById('thresholdValue');
+const imageUrlInput = document.getElementById('imageUrl');
+const loadUrlBtn = document.getElementById('loadUrlBtn');
 
 const originalCtx = originalCanvas.getContext('2d');
 const coloringCtx = coloringCanvas.getContext('2d');
@@ -24,6 +26,34 @@ thresholdSlider.addEventListener('input', () => {
   }
 });
 
+function loadAndProcessImage(img) {
+    uploadedImage = img;
+
+    // Set originalCanvas dimensions to match image
+    originalCanvas.width = img.width;
+    originalCanvas.height = img.height;
+    
+    // Define A4 dimensions for display (e.g., at 96 DPI)
+    const a4WidthPx = 794; // approx 210mm at 96 DPI
+    const a4HeightPx = 1122; // approx 297mm at 96 DPI
+
+    // Set coloringCanvas dimensions to A4 aspect ratio for consistent display
+    coloringCanvas.width = a4WidthPx;
+    coloringCanvas.height = a4HeightPx;
+
+    originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+    originalCtx.drawImage(img, 0, 0);
+
+    convertBtn.disabled = false;
+    printBtn.disabled = true; // Disable print until conversion
+
+    // Clear coloring canvas if a new image is uploaded
+    coloringCtx.clearRect(0, 0, coloringCanvas.width, coloringCanvas.height);
+    // Immediately convert image after upload
+    convertImageToColoringPage();
+    printBtn.disabled = false;
+}
+
 imageUpload.addEventListener('change', (event) => {
   const file = event.target.files[0];
   if (!file) {
@@ -34,35 +64,35 @@ imageUpload.addEventListener('change', (event) => {
   reader.onload = (e) => {
     const img = new Image();
     img.onload = () => {
-      uploadedImage = img;
-
-      // Set originalCanvas dimensions to match image
-      originalCanvas.width = img.width;
-      originalCanvas.height = img.height;
-      
-      // Define A4 dimensions for display (e.g., at 96 DPI)
-      const a4WidthPx = 794; // approx 210mm at 96 DPI
-      const a4HeightPx = 1122; // approx 297mm at 96 DPI
-
-      // Set coloringCanvas dimensions to A4 aspect ratio for consistent display
-      coloringCanvas.width = a4WidthPx;
-      coloringCanvas.height = a4HeightPx;
-
-      originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
-      originalCtx.drawImage(img, 0, 0);
-
-      convertBtn.disabled = false;
-      printBtn.disabled = true; // Disable print until conversion
-
-      // Clear coloring canvas if a new image is uploaded
-      coloringCtx.clearRect(0, 0, coloringCanvas.width, coloringCanvas.height);
-      // Immediately convert image after upload
-      convertImageToColoringPage();
-      printBtn.disabled = false;
+      loadAndProcessImage(img);
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+});
+
+loadUrlBtn.addEventListener('click', () => {
+    const imageUrl = imageUrlInput.value.trim();
+    if (!imageUrl) {
+        alert('이미지 URL을 입력해주세요.');
+        return;
+    }
+
+    const img = new Image();
+    img.crossOrigin = "Anonymous"; // CORS 문제 완화 시도
+    img.onload = () => {
+        loadAndProcessImage(img);
+    };
+    img.onerror = () => {
+        alert('이미지 로드에 실패했습니다. 유효한 URL인지 확인하거나 CORS 문제가 없는지 확인해주세요.');
+        // 이미지 로드 실패 시 상태 초기화
+        uploadedImage = null;
+        originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+        coloringCtx.clearRect(0, 0, coloringCanvas.width, coloringCanvas.height);
+        convertBtn.disabled = true;
+        printBtn.disabled = true;
+    };
+    img.src = imageUrl;
 });
 
 function convertImageToColoringPage() {
