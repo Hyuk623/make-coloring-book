@@ -5,6 +5,8 @@ const convertBtn = document.getElementById('convertBtn');
 const printBtn = document.getElementById('printBtn');
 const thresholdSlider = document.getElementById('thresholdSlider');
 const thresholdValueSpan = document.getElementById('thresholdValue');
+const blurSlider = document.getElementById('blurSlider');
+const blurValueSpan = document.getElementById('blurValue');
 const imageUrlInput = document.getElementById('imageUrl');
 const loadUrlBtn = document.getElementById('loadUrlBtn');
 
@@ -13,18 +15,54 @@ const coloringCtx = coloringCanvas.getContext('2d');
 
 let uploadedImage = null;
 let currentThreshold = parseInt(thresholdSlider.value);
+let currentBlurRadius = parseFloat(blurSlider.value);
 
 // Update threshold value display
 thresholdValueSpan.textContent = currentThreshold;
+
+// Update blur value display
+blurValueSpan.textContent = currentBlurRadius.toFixed(1);
 
 thresholdSlider.addEventListener('input', () => {
   currentThreshold = parseInt(thresholdSlider.value);
   thresholdValueSpan.textContent = currentThreshold;
   if (uploadedImage) {
-    // Re-run conversion with new threshold for real-time feedback
     convertImageToColoringPage();
   }
 });
+
+blurSlider.addEventListener('input', () => {
+  currentBlurRadius = parseFloat(blurSlider.value);
+  blurValueSpan.textContent = currentBlurRadius.toFixed(1);
+  if (uploadedImage) {
+    convertImageToColoringPage();
+  }
+});
+
+// 가우시안 커널 생성 함수
+function generateGaussianKernel(radius, sigma = radius / 3) {
+    const kernelSize = 2 * Math.ceil(radius) + 1;
+    const kernel = Array(kernelSize).fill(0).map(() => Array(kernelSize).fill(0));
+    let sum = 0;
+    const center = Math.floor(kernelSize / 2);
+
+    for (let y = 0; y < kernelSize; y++) {
+        for (let x = 0; x < kernelSize; x++) {
+            const exp = Math.exp(-((x - center) * (x - center) + (y - center) * (y - center)) / (2 * sigma * sigma));
+            const val = exp / (2 * Math.PI * sigma * sigma);
+            kernel[y][x] = val;
+            sum += val;
+        }
+    }
+
+    // Normalize kernel
+    for (let y = 0; y < kernelSize; y++) {
+        for (let x = 0; x < kernelSize; x++) {
+            kernel[y][x] /= sum;
+        }
+    }
+    return { kernel: kernel, kernelSize: kernelSize };
+}
 
 function loadAndProcessImage(img) {
     uploadedImage = img;
@@ -99,7 +137,7 @@ function convertImageToColoringPage() {
   if (!uploadedImage) {
     return; // Do nothing if no image is uploaded
   }
-  console.log('Converting image with threshold (Sobel):', currentThreshold); // Log the threshold
+  console.log('Converting image with threshold (Sobel):', currentThreshold, 'Blur Radius:', currentBlurRadius); // Log the threshold
   
   const processingWidth = uploadedImage.width;
   const processingHeight = uploadedImage.height;
@@ -133,25 +171,26 @@ function convertImageToColoringPage() {
     }
   }
 
-  // Apply Gaussian Blur (3x3 kernel for simplicity)
+  // Apply Gaussian Blur
   const blurredGrayscaleData = new Uint8ClampedArray(processingWidth * processingHeight);
-  const gaussianKernel = [
-    [1, 2, 1],
-    [2, 4, 2],
-    [1, 2, 1]
-  ];
-  const kernelSum = 16; // Sum of all values in the kernel
+  if (currentBlurRadius > 0) {
+    const { kernel, kernelSize } = generateGaussianKernel(currentBlurRadius);
+    const halfKernel = Math.floor(kernelSize / 2);
 
-  for (let y = 1; y < processingHeight - 1; y++) {
-    for (let x = 1; x < processingWidth - 1; x++) {
-      let sum = 0;
-      for (let ky = -1; ky <= 1; ky++) {
-        for (let kx = -1; kx <= 1; kx++) {
-          sum += grayscaleData[(y + ky) * processingWidth + (x + kx)] * gaussianKernel[ky + 1][kx + 1];
+    for (let y = halfKernel; y < processingHeight - halfKernel; y++) {
+      for (let x = halfKernel; x < processingWidth - halfKernel; x++) {
+        let sum = 0;
+        for (let ky = -halfKernel; ky <= halfKernel; ky++) {
+          for (let kx = -halfKernel; kx <= halfKernel; kx++) {
+            sum += grayscaleData[(y + ky) * processingWidth + (x + kx)] * kernel[ky + halfKernel][kx + halfKernel];
+          }
         }
+        blurredGrayscaleData[y * processingWidth + x] = sum;
       }
-      blurredGrayscaleData[y * processingWidth + x] = sum / kernelSum;
     }
+  } else {
+    // If blur radius is 0, just copy grayscale data
+    blurredGrayscaleData.set(grayscaleData);
   }
 
   // Sobel kernels
@@ -167,10 +206,11 @@ function convertImageToColoringPage() {
     [1, 2, 1]
   ];
 
-  const threshold = currentThreshold; // Use dynamic threshold
-
   // Apply Sobel filter
-  for (let y = 1; y < processingHeight - 1; y++) { // Skip border pixels
+  const edgeMagnitudeData = new Float32Array(processingWidth * processingHeight);
+  const edgeAngleData = new Float32Array(processingWidth * processingHeight);
+
+  for (let y = 1; y < processingHeight - 1; y++) {
     for (let x = 1; x < processingWidth - 1; x++) {
       let sumX = 0;
       let sumY = 0;
@@ -178,16 +218,68 @@ function convertImageToColoringPage() {
       // Apply convolution for Gx and Gy
       for (let ky = -1; ky <= 1; ky++) {
         for (let kx = -1; kx <= 1; kx++) {
-          const pixelValue = grayscaleData[(y + ky) * processingWidth + (x + kx)];
+          const pixelValue = blurredGrayscaleData[(y + ky) * processingWidth + (x + kx)];
           sumX += pixelValue * Gx[ky + 1][kx + 1];
           sumY += pixelValue * Gy[ky + 1][kx + 1];
         }
       }
 
-      // Calculate magnitude
       const magnitude = Math.sqrt(sumX * sumX + sumY * sumY);
+      const angle = Math.atan2(sumY, sumX) * 180 / Math.PI; // 각도를 -180 ~ 180도로 계산
 
+      edgeMagnitudeData[y * processingWidth + x] = magnitude;
+      edgeAngleData[y * processingWidth + x] = angle;
+    }
+  }
+
+  // Apply Non-Maximum Suppression (NMS)
+  const nmsMagnitudeData = new Float32Array(processingWidth * processingHeight);
+  for (let y = 1; y < processingHeight - 1; y++) {
+    for (let x = 1; x < processingWidth - 1; x++) {
+      const currentMagnitude = edgeMagnitudeData[y * processingWidth + x];
+      if (currentMagnitude === 0) { // 엣지 강도가 0이면 스킵
+        continue;
+      }
+
+      let angle = edgeAngleData[y * processingWidth + x];
+      // 각도를 0-180도로 정규화하고 4가지 방향(0, 45, 90, 135)으로 양자화
+      if (angle < 0) angle += 180;
+      angle = Math.round(angle / 45) * 45;
+
+      let p1 = 0, p2 = 0; // 비교할 인접 픽셀의 강도
+
+      // 엣지 방향에 따른 인접 픽셀 선택
+      if (angle === 0 || angle === 180) { // Horizontal edge
+        p1 = edgeMagnitudeData[y * processingWidth + (x + 1)];
+        p2 = edgeMagnitudeData[y * processingWidth + (x - 1)];
+      } else if (angle === 45) { // Diagonal (top-right to bottom-left)
+        p1 = edgeMagnitudeData[(y - 1) * processingWidth + (x + 1)];
+        p2 = edgeMagnitudeData[(y + 1) * processingWidth + (x - 1)];
+      } else if (angle === 90) { // Vertical edge
+        p1 = edgeMagnitudeData[(y - 1) * processingWidth + x];
+        p2 = edgeMagnitudeData[(y + 1) * processingWidth + x];
+      } else if (angle === 135) { // Diagonal (top-left to bottom-right)
+        p1 = edgeMagnitudeData[(y - 1) * processingWidth + (x - 1)];
+        p2 = edgeMagnitudeData[(y + 1) * processingWidth + (x + 1)];
+      }
+
+      // 현재 픽셀의 강도가 인접 픽셀보다 크거나 같으면 유지 (국지적 최대값)
+      if (currentMagnitude >= p1 && currentMagnitude >= p2) {
+        nmsMagnitudeData[y * processingWidth + x] = currentMagnitude;
+      } else {
+        nmsMagnitudeData[y * processingWidth + x] = 0; // 억제
+      }
+    }
+  }
+
+  const threshold = currentThreshold; // Use dynamic threshold
+
+  // 최종 임계값 처리
+  for (let y = 0; y < processingHeight; y++) {
+    for (let x = 0; x < processingWidth; x++) {
       const i = (y * processingWidth + x) * 4;
+      const magnitude = nmsMagnitudeData[y * processingWidth + x];
+
       if (magnitude > threshold) {
         outputData[i] = 0;     // Black
         outputData[i + 1] = 0;
@@ -203,6 +295,8 @@ function convertImageToColoringPage() {
   }
 
   // Handle border pixels (set to white)
+  // NMS 처리 시 경계 픽셀은 0으로 초기화되므로 별도로 처리할 필요는 없지만,
+  // Sobel 필터가 적용되지 않은 외곽 1픽셀 영역을 흰색으로 강제
   for (let y = 0; y < processingHeight; y++) {
     for (let x = 0; x < processingWidth; x++) {
       if (y === 0 || y === processingHeight - 1 || x === 0 || x === processingWidth - 1) {
@@ -214,6 +308,7 @@ function convertImageToColoringPage() {
       }
     }
   }
+
 
   processedTempCtx.putImageData(outputImageData, 0, 0);
 
